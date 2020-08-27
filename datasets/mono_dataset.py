@@ -122,6 +122,7 @@ class MonoDataset(data.Dataset):
             ("K", scale) or ("inv_K", scale)        for camera intrinsics,
             "stereo_T"                              for camera extrinsics, and
             "depth_gt"                              for ground truth depth maps.
+            "index"                                 for current index
 
         <frame_id> is either:
             an integer (e.g. 0, -1, or 1) representing the temporal step relative to 'index',
@@ -143,10 +144,10 @@ class MonoDataset(data.Dataset):
         line = self.filenames[index].split()
         folder = line[0]
 
-        if len(line) == 3:
+        if len(line) == 2:
             frame_index = int(line[1])
         else:
-            frame_index = 0
+            frame_index = 1
 
         if len(line) == 3:
             side = line[2]
@@ -196,6 +197,7 @@ class MonoDataset(data.Dataset):
             stereo_T[0, 3] = side_sign * baseline_sign * 0.1
 
             inputs["stereo_T"] = torch.from_numpy(stereo_T)
+        inputs["index"] = torch.tensor(frame_index)
 
         return inputs
 

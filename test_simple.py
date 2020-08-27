@@ -33,6 +33,7 @@ def parse_args():
                         help='name of a pretrained model to use',
                         choices=[
                             "mono_640x192",
+                            "mono_640x480",
                             "stereo_640x192",
                             "mono+stereo_640x192",
                             "mono_no_pt_640x192",
@@ -61,7 +62,7 @@ def test_simple(args):
     else:
         device = torch.device("cpu")
 
-    download_model_if_doesnt_exist(args.model_name)
+    #download_model_if_doesnt_exist(args.model_name)
     model_path = os.path.join("models", args.model_name)
     print("-> Loading model from ", model_path)
     encoder_path = os.path.join(model_path, "encoder.pth")
