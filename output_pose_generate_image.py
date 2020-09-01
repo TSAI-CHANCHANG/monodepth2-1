@@ -99,12 +99,16 @@ class Evaluation:
         assert os.path.isdir(opt.load_weights_folder), \
             "Cannot find a folder at {}".format(opt.load_weights_folder)
 
+        opt.frame_ids = [0, 1]  # pose network only takes two frames as input
+        outputs = {}
+        transLossAmount = 0.0
+        rotLossAmount = 0.0
 
         filenames = readlines(
             os.path.join(os.path.dirname(__file__), "splits", opt.split, "test_files.txt"))
 
         dataset = SevenDataset(opt.data_path, filenames, opt.height, opt.width,
-                                [0, 1], 4, is_train=False)
+                                [0, opt.frame_ids[1]], 4, is_train=False)
         dataloader = DataLoader(dataset, opt.batch_size, shuffle=False,
                                 num_workers=opt.num_workers, pin_memory=True, drop_last=False)
 
@@ -140,10 +144,6 @@ class Evaluation:
 
         print("-> Computing pose predictions")
 
-        opt.frame_ids = [0, 1]  # pose network only takes two frames as input
-        outputs = {}
-        transLossAmount = 0.0
-        rotLossAmount = 0.0
 
         with torch.no_grad():
             for inputs in dataloader:
@@ -160,9 +160,9 @@ class Evaluation:
                 pred_disp = pred_disp.cpu()[:, 0].numpy()
                 pred_disps.append(pred_disp)
 
-                outputs[("axisangle", 0, 1)] = axisangle
-                outputs[("translation", 0, 1)] = translation
-                outputs[("cam_T_cam", 0, 1)] = transformation_from_parameters(axisangle[:, 0], translation[:, 0])
+                outputs[("axisangle", 0, opt.frame_ids[1])] = axisangle
+                outputs[("translation", 0, opt.frame_ids[1]])] = translation
+                outputs[("cam_T_cam", 0, opt.frame_ids[1])] = transformation_from_parameters(axisangle[:, 0], translation[:, 0])
                 pred_pose = transformation_from_parameters(axisangle[:, 0], translation[:, 0]).cpu().numpy()
                 pred_poses.append(pred_pose)
 
@@ -175,8 +175,7 @@ class Evaluation:
                     print("now have predict picture index {}".format(index))
                     print("average error of rot = {}".format(rotLossAmount/(index+1)))
                     print("average error of trans = {}".format(transLossAmount/(index+1)))
-                #picture = outputs[("color", 1, 1)].squeeze().cpu().view(480,640,3).numpy()
-                #img_2 = transforms.ToPILImage()(outputs[("color", 1, 0)].squeeze().cpu()).convert('RGB')
+                #img_2 = transforms.ToPILImage()(outputs[("color", opt.frame_ids[1], 0)].squeeze().cpu()).convert('RGB')
                 #img_2.save("/content/drive/My Drive/monodepth2/generate.jpg") 
 
         pred_disps = np.concatenate(pred_disps)
