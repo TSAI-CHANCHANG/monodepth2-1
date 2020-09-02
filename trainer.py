@@ -198,13 +198,13 @@ class Trainer:
 
         print("Training")
         self.set_train()
-        select_rate_list = {}
+        select_rate_list = []
         for batch_idx, inputs in enumerate(self.train_loader):
 
             before_op_time = time.time()
             outputs, losses = self.process_batch(inputs)
 
-            select_rate_list.append(torch.nonzero(outputs["identity_selection/0"]).size(0)/(12*self.opt.width*self.opt.height))
+            select_rate_list.append(torch.nonzero(outputs["identity_selection/0"],as_tuple=False).size(0)/(12*self.opt.width*self.opt.height))
             self.model_optimizer.zero_grad()
             losses["loss"].backward()
             self.model_optimizer.step()
@@ -503,7 +503,7 @@ class Trainer:
         """
         depth_pred = outputs[("depth", 0, 0)]
         depth_pred = torch.clamp(F.interpolate(
-            depth_pred, [self.opt.width, self.opt.height], mode="bilinear", align_corners=False), 1e-3, 80)
+            depth_pred, [self.opt.height, self.opt.width], mode="bilinear", align_corners=False), 1e-3, 80)
         depth_pred = depth_pred.detach()
 
         depth_gt = inputs["depth_gt"]
