@@ -147,10 +147,37 @@ class BackprojectDepth(nn.Module):
         self.width = width
 
         meshgrid = np.meshgrid(range(self.width), range(self.height), indexing='xy')
+        # xs, ys = np.meshgrid(np.arange(10), np.arange(6))
+        # >>> xs
+        # array([[0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+        #     [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+        #     [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+        #     [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+        #     [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+        #     [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]])
+        # >>> ys
+        # array([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        #     [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        #     [2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+        #     [3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
+        #     [4, 4, 4, 4, 4, 4, 4, 4, 4, 4],
+        #     [5, 5, 5, 5, 5, 5, 5, 5, 5, 5]])
         self.id_coords = np.stack(meshgrid, axis=0).astype(np.float32)
+        # array([[[0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+        #     [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+        #     [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+        #     [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+        #     [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+        #     [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]],
+        #     [[0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        #     [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        #     [2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+        #     [3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
+        #     [4, 4, 4, 4, 4, 4, 4, 4, 4, 4],
+        #     [5, 5, 5, 5, 5, 5, 5, 5, 5, 5]]])
         self.id_coords = nn.Parameter(torch.from_numpy(self.id_coords),
                                       requires_grad=False)
-
+        # untrainable tensor->trainable parameter
         self.ones = nn.Parameter(torch.ones(self.batch_size, 1, self.height * self.width),
                                  requires_grad=False)
 

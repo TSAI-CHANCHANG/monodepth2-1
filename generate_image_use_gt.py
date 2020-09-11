@@ -112,9 +112,6 @@ class Evaluation:
         dataloader = DataLoader(dataset, opt.batch_size, shuffle=False,
                                 num_workers=opt.num_workers, pin_memory=True, drop_last=False)
 
-        pred_disps = []
-        pred_poses = []
-
         print("-> Computing pose predictions")
 
 
@@ -123,13 +120,11 @@ class Evaluation:
                 for key, ipt in inputs.items():
                     inputs[key] = ipt.cuda()
 
-
+                # step 1: input ground truth depth
                 outputs[("disp", 0)] = inputs["depth_gt"] / 65535
                 
-                pred_disp, _ = disp_to_depth(outputs[("disp", 0)], opt.min_depth, opt.max_depth)
-                pred_disp = pred_disp.cpu()[:, 0].numpy()
-                pred_disps.append(pred_disp)
-
+                # step 2: input the ground truth pose of 2 image
+                # then calculate the relative pose
                 fStr1 = "frame-{:06d}.pose.txt".format(inputs["index"].item())
                 gtPosePath1 = os.path.join("/content/drive/My Drive/monodepth2/splits/7scenes/chess/seq-01", "poses", fStr1)
                 gtPose1 = np.loadtxt(gtPosePath1).reshape(4, 4)
@@ -141,29 +136,14 @@ class Evaluation:
                 gtRelativePose = calRelativePose(gtPose1, gtPose2)
 
                 outputs[("cam_T_cam", 0, opt.frame_ids[1])] = torch.from_numpy(gtRelativePose.reshape(1, 4, 4).astype(np.float32)).cuda()
-                pred_pose = gtRelativePose
-                pred_poses.append(pred_pose)
 
+                # step 3: using function "generate_images_pred" to generate backprojection image
                 self.generate_images_pred(inputs, outputs)
                 index = inputs["index"].cpu().item()
-                # transLoss, rotLoss = predictionErrorCal(np.squeeze(pred_pose, axis=0), index)
-                # transLossAmount += transLoss
-                # rotLossAmount += rotLoss
-                # if (index + 1) % 50 == 0:
-                #     print("now have predict picture index {}".format(index))
-                #     print("average error of rot = {}".format(rotLossAmount/(index+1)))
-                #     print("average error of trans = {}".format(transLossAmount/(index+1)))
-                # picture = outputs[("color", opt.frame_ids[1], 0)].squeeze().cpu().view(480,640,3).numpy()
+                
                 img_2 = transforms.ToPILImage()(outputs[("color", opt.frame_ids[1], 0)].squeeze().cpu()).convert('RGB')
                 img_2.save("/content/drive/My Drive/monodepth2/generate_gt.jpg") 
 
-        pred_disps = np.concatenate(pred_disps)
-        pred_poses = np.concatenate(pred_poses)
-
-        print("-> Predictions saved to")
-        print("average error of rot = {}".format(rotLossAmount/999))
-        print("average error of trans = {}".format(transLossAmount/999))
-        #print(np.squeeze(pred_poses, axis=0).shape)
         
 
 
