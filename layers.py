@@ -189,9 +189,40 @@ class BackprojectDepth(nn.Module):
 
     def forward(self, depth, inv_K):
         cam_points = torch.matmul(inv_K[:, :3, :3], self.pix_coords)
-        cam_points = depth.view(self.batch_size, 1, -1) * cam_points
-        cam_points = torch.cat([cam_points, self.ones], 1)
+        '''
+        pix_coords = | u1 u2 ... un | (represents each pixel in the image) 
+                     | v1 v2 ... vn |
+                     | 1  1  ... 1  |
+        (fl = focal length, and following formulation will only pick up one pixel to make it explain easier)
+        since:
+        K * | x | = | fL 0  Cx | * | x |
+            | y |   | 0  fL Cy |   | y |
+            | z |   | 0  0  1  |   | z |
+                  = | fL*x + Cx*z | = | fL*x/z + Cx |
+                    | fL*y + Cy*z |   | fL*y/z + Cy | * z 
+                    |      z      |   |      1      |
+        K^-1 * K * | x | = | x | = k^-1 * | fL*x/z + Cx |
+                   | y |   | y |          | fL*y/z + Cy | * z
+                   | z |   | z |          |      1      |
 
+        so, 
+        K^-1 * pix_coords = K^-1 * | fL*x/z + Cx |  =  | x |
+                                   | fL*y/z + Cy |     | y | / z     
+                                   |      1      |     | z |
+        '''
+        cam_points = depth.view(self.batch_size, 1, -1) * cam_points
+        '''
+        depth * | x |
+                | y | / z
+                | z |
+        '''
+        cam_points = torch.cat([cam_points, self.ones], 1)
+        '''
+        depth * | x |
+                | y | / z
+                | z |
+                | 1 |
+        '''
         return cam_points
 
 
@@ -208,10 +239,31 @@ class Project3D(nn.Module):
 
     def forward(self, points, K, T):
         P = torch.matmul(K, T)[:, :3, :]
-
+        '''
+        X' = TX (represent in new coordinate system)
+        KT*X means match the image 2 pixel to the 3D point  
+        '''
         cam_points = torch.matmul(P, points)
+        '''                 K              T          X
+        cam_points = | fL 0  Cx 0 | * | a b c x | * | x | 
+                     | 0  fL Cy 0 |   | d e f y |   | y |     
+                     | 0  0  1  0 |   | g h i z |   | z |   
+                     | 0  0  0  1 |   | 0 0 0 1 |   | 1 |    
+                   = | ... ... ... ... | * | x |
+                     | ... ... ... ... |   | y |
+                     |  g   h   i   z  |   | z |
+                     |  0   0   0   1  |   | 1 |
+                   = |     ...    |
+                     |     ...    |
+                     | gx+hy+iz+z |
+                     |      1     |
 
+        '''
         pix_coords = cam_points[:, :2, :] / (cam_points[:, 2, :].unsqueeze(1) + self.eps)
+        '''
+        pix_coords = | ... | / (gx+hy+iz+z) = | u' |
+                     | ... |                  | v' |
+        '''
         pix_coords = pix_coords.view(self.batch_size, 2, self.height, self.width)
         pix_coords = pix_coords.permute(0, 2, 3, 1)
         pix_coords[..., 0] /= self.width - 1
