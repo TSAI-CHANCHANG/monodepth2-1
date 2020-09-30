@@ -1,9 +1,3 @@
-# Copyright Niantic 2019. Patent Pending. All rights reserved.
-#
-# This software is licensed under the terms of the Monodepth2 licence
-# which allows for non-commercial use only, the full terms of which are made
-# available in the LICENSE file.
-
 from __future__ import absolute_import, division, print_function
 
 import os
@@ -47,18 +41,18 @@ class Evaluation:
             project_3d[scale].to(device)
 
         for scale in opt.scales:
-            disp = outputs[("disp", scale)]
+            # disp = outputs[("disp", scale)]
             if opt.v1_multiscale:
                 source_scale = scale
             else:
-                disp = F.interpolate(
-                    disp, [opt.height, opt.width], mode="bilinear", align_corners=False)
+                # disp = F.interpolate(
+                    # disp, [opt.height, opt.width], mode="bilinear", align_corners=False)
                 source_scale = 0
 
-            _, depth = disp_to_depth(disp, opt.min_depth, opt.max_depth)
+            # _, depth = disp_to_depth(disp, opt.min_depth, opt.max_depth)
 
-            outputs[("depth", 0, scale)] = depth
-
+            depth = inputs["depth_gt"]
+            
             for i, frame_id in enumerate(opt.frame_ids[1:]):
 
                 if frame_id == "s":
@@ -89,60 +83,55 @@ class Evaluation:
                     inputs[("color", frame_id, source_scale)],
                     outputs[("sample", frame_id, scale)],
                     padding_mode="border")   
-                
                 if not opt.disable_automasking:
                     outputs[("color_identity", frame_id, scale)] = \
                         inputs[("color", frame_id, source_scale)]
-
     def evaluate(self):
         opt = self.options
-        assert os.path.isdir(opt.load_weights_folder), \
-            "Cannot find a folder at {}".format(opt.load_weights_folder)
-
-        opt.frame_ids = [0, 50]  # pose network only takes two frames as input
         outputs = {}
-        transLossAmount = 0.0
-        rotLossAmount = 0.0
 
         filenames = readlines(
             os.path.join(os.path.dirname(__file__), "splits", opt.split, "test_files.txt"))
-
         dataset = SevenDataset(opt.data_path, filenames, opt.height, opt.width,
                                 opt.frame_ids, 4, is_train=False)
         dataloader = DataLoader(dataset, opt.batch_size, shuffle=False,
                                 num_workers=opt.num_workers, pin_memory=True, drop_last=False)
 
         print("-> Computing pose predictions")
-
-
         with torch.no_grad():
             for inputs in dataloader:
                 for key, ipt in inputs.items():
                     inputs[key] = ipt.cuda()
 
-                # step 1: input ground truth depth
-                outputs[("disp", 0)] = inputs["depth_gt"] / 65535
-                
-                # step 2: input the ground truth pose of 2 image
-                # then calculate the relative pose
-                fStr1 = "frame-{:06d}.pose.txt".format(inputs["index"].item())
-                gtPosePath1 = os.path.join("/content/drive/My Drive/monodepth2/splits/7scenes/chess/seq-01", "poses", fStr1)
-                gtPose1 = np.loadtxt(gtPosePath1).reshape(4, 4)
-                fStr2 = "frame-{:06d}.pose.txt".format(inputs["index"].item()+opt.frame_ids[1])
-                print("fStr1 = {}".format(fStr1))
-                print("fStr2 = {}".format(fStr2))
-                gtPosePath2 = os.path.join("/content/drive/My Drive/monodepth2/splits/7scenes/chess/seq-01", "poses", fStr2)
-                gtPose2 = np.loadtxt(gtPosePath2).reshape(4, 4)
-                gtRelativePose = calRelativePose(gtPose1, gtPose2)
+                if opt.pose_model_type == "shared":
+                    pose_feats = {f_i: features[f_i] for f_i in opt.frame_ids}
+                else:
+                    pose_feats = {f_i: inputs["color_aug", f_i, 0] for f_i in opt.frame_ids}
 
-                outputs[("cam_T_cam", 0, opt.frame_ids[1])] = torch.from_numpy(gtRelativePose.reshape(1, 4, 4).astype(np.float32)).cuda()
+                for f_i in opt.frame_ids[1:]:
+                    print(f_i)
+                    if f_i != "s":
+                        # To maintain ordering we always pass frames in temporal order
+                        fStr1 = "frame-{:06d}.pose.txt".format(inputs["index"].item())
+                        gtPosePath1 = os.path.join("/content/drive/My Drive/monodepth2/splits/7scenes/chess/seq-01", "poses", fStr1)
+                        gtPose1 = np.loadtxt(gtPosePath1).reshape(4, 4)
+                        fStr2 = "frame-{:06d}.pose.txt".format(inputs["index"].item()+opt.frame_ids[1])
+                        print("fStr1 = {}".format(fStr1))
+                        print("fStr2 = {}".format(fStr2))
+                        gtPosePath2 = os.path.join("/content/drive/My Drive/monodepth2/splits/7scenes/chess/seq-01", "poses", fStr2)
+                        gtPose2 = np.loadtxt(gtPosePath2).reshape(4, 4)
+                        gtRelativePose = calRelativePose(gtPose1, gtPose2)
 
-                # step 3: using function "generate_images_pred" to generate backprojection image
+                        outputs[("cam_T_cam", 0, f_i)] = torch.from_numpy(gtRelativePose.reshape(1, 4, 4).astype(np.float32)).cuda()
+
+
                 self.generate_images_pred(inputs, outputs)
-                index = inputs["index"].cpu().item()
-                
                 img_2 = transforms.ToPILImage()(outputs[("color", opt.frame_ids[1], 0)].squeeze().cpu()).convert('RGB')
-                img_2.save("/content/drive/My Drive/monodepth2/generate_gt.jpg") 
+                img_2.save("/content/drive/My Drive/monodepth2/assets/generate_gt_{}to{}.jpg".format(opt.frame_ids[1],0)) 
+
+
+        print("-> Predictions saved to")
+        print(("/content/drive/My Drive/monodepth2/assets/generate_gt_{}to{}.jpg".format(opt.frame_ids[1],0)))
 
         
 
