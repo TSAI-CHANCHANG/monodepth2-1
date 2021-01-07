@@ -168,8 +168,10 @@ class MonoDataset(data.Dataset):
             K[0, :] *= self.width // (2 ** scale)
             K[1, :] *= self.height // (2 ** scale)
 
-            inv_K = np.linalg.pinv(K)
-
+            inv_K = np.array([[1/585, 0, -320/585, 0],
+                           [0, 1/585, -240/585, 0],
+                           [0, 0, 1, 0],
+                           [0, 0, 0, 1]], dtype=np.float32)
             inputs[("K", scale)] = torch.from_numpy(K)
             inputs[("inv_K", scale)] = torch.from_numpy(inv_K)
 

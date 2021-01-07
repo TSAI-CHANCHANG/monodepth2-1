@@ -203,7 +203,7 @@ class Trainer:
 
             before_op_time = time.time()
             outputs, losses = self.process_batch(inputs)
-
+            
             select_rate_list.append(torch.nonzero(outputs["identity_selection/0"],as_tuple=False).size(0)/(12*self.opt.width*self.opt.height))
             self.model_optimizer.zero_grad()
             losses["loss"].backward()
@@ -217,7 +217,7 @@ class Trainer:
 
             if early_phase or late_phase:
                 self.log_time(batch_idx, duration, losses["loss"].cpu().data)
-                print("select rate now = {}".format(sum(select_rate_list) / len(select_rate_list)))
+                #print("select rate now = {}".format(sum(select_rate_list) / len(select_rate_list)))
                 if "depth_gt" in inputs:
                     self.compute_depth_losses(inputs, outputs, losses)
 

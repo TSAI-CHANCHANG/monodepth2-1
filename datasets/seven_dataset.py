@@ -15,7 +15,7 @@ class SevenDataset(MonoDataset):
                            [0, 585/480, 240/480, 0],
                            [0, 0, 1, 0],
                            [0, 0, 0, 1]], dtype=np.float32)
-        self.full_res_shape = (640,192)
+        self.full_res_shape = (640,480)
 
     def check_depth(self):
         return True
@@ -33,10 +33,13 @@ class SevenDataset(MonoDataset):
     def get_depth(self, folder, frame_index, side, do_flip):
         f_str = "frame-{:06d}.depth{}".format(frame_index, ".png")
         depth_path = os.path.join(self.data_path, folder, f_str)
-        depth_gt = pil.open(depth_path)
-        depth_gt = depth_gt.resize(self.full_res_shape, pil.NEAREST)
-        depth_gt = np.array(depth_gt)
-
+        print("f_str_depth={}".format(depth_path))
+        depth = pil.open(depth_path)
+        # depth = depth.resize(self.full_res_shape, pil.NEAREST)
+        depth = np.array(depth)
+        depth[depth==65535]=100000000
+        depth_gt = depth.astype(np.float)*0.001
+        
         if do_flip:
             depth_gt = np.fliplr(depth_gt)
 
